@@ -8,6 +8,10 @@ import dotenv
 import logging
 
 
+logging.basicConfig(filename='app.log', level=logging.ERROR,
+                    format='%(asctime)s [%(levelname)s]: %(message)s')
+
+
 def main():
     datadict = {
         "320008014E9B00DF": "ElPanna",
