@@ -165,3 +165,5 @@ output.txt
 data.txt
 export
 opt
+error.log
+info.log
