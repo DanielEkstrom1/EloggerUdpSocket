@@ -30,6 +30,56 @@ def setup_logging():
     return logger
 
 
+def connect_to_socket(UDP_IP: str, UDP_PORT: int):
+    try:
+        sock = socket.socket(socket.AF_INET,  # Internet
+                             socket.SOCK_DGRAM)  # UDP
+        sock.bind((UDP_IP, UDP_PORT))
+    except Exception as e:
+        logging.error(f"Error creating socket: {e}")
+        return
+
+    logging.info("Socket created")
+    logging.info(f"UDP_IP: {UDP_IP} UDP_PORT: {UDP_PORT}")
+    logging.info(sock)
+    logging.info("STARTED")
+
+    return sock
+
+
+def get_env_vars():
+    try:
+        BUCKET = os.environ.get('bucket')
+        ORG = os.environ.get('org')
+        TOKEN = os.environ.get('token')
+        UDP_IP = os.environ.get('UDP_IP')
+        UDP_PORT = int(os.environ.get('UDP_PORT'))
+        MY_IP = os.environ.get('MY_IP')
+
+        # Store the URL of your InfluxDB instance
+        URL = os.environ.get("url")
+
+        return BUCKET, ORG, TOKEN, UDP_IP, UDP_PORT, MY_IP, URL
+    except Exception as e:
+        logging.error(f"Error reading env vars: {e}")
+        return
+
+
+def connect_to_influxdb(URL: str, TOKEN: str, ORG: str):
+    try:
+        client = influxdb_client.InfluxDBClient(
+            url=URL,
+            token=TOKEN,
+            org=ORG
+        )
+
+        write_api = client.write_api(write_options=SYNCHRONOUS)
+        return write_api
+    except Exception as e:
+        logging.error(f"Error creating influxdb client: {e}")
+        return
+
+
 def main(logging=logging):
     datadict = {
         "320008014E9B00DF": "ElPanna",
@@ -48,52 +98,17 @@ def main(logging=logging):
     }
     print("STARTING")
     dotenv.load_dotenv()
-
-    try:
-        BUCKET = os.environ.get('bucket')
-        ORG = os.environ.get('org')
-        TOKEN = os.environ.get('token')
-        UDP_IP = os.environ.get('UDP_IP')
-        UDP_PORT = int(os.environ.get('UDP_PORT'))
-        MY_IP = os.environ.get('MY_IP')
-
-        # Store the URL of your InfluxDB instance
-        URL = os.environ.get("url")
-    except Exception as e:
-        logging.error(f"Error reading env vars: {e}")
-        return
-
-    try:
-        client = influxdb_client.InfluxDBClient(
-            url=URL,
-            token=TOKEN,
-            org=ORG
-        )
-
-        write_api = client.write_api(write_options=SYNCHRONOUS)
-    except Exception as e:
-        logging.error(f"Error creating influxdb client: {e}")
-        return
-    try:
-        sock = socket.socket(socket.AF_INET,  # Internet
-                             socket.SOCK_DGRAM)  # UDP
-        sock.bind((UDP_IP, UDP_PORT))
-    except Exception as e:
-        logging.error(f"Error creating socket: {e}")
-        return
-
-    logging.info("Socket created")
-    logging.info(f"UDP_IP: {UDP_IP} UDP_PORT: {UDP_PORT}")
-    logging.info(sock)
-    logging.info("STARTED")
+    BUCKET, ORG, TOKEN, UDP_IP, UDP_PORT, MY_IP, URL = get_env_vars()
+    write_api = connect_to_influxdb(URL=URL, TOKEN=TOKEN, ORG=ORG)
+    sock = connect_to_socket(UDP_IP=UDP_IP, UDP_PORT=UDP_PORT)
     results = {}
 
     while True:
         try:
             data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
             data = data.decode().split("&")
-            logging.info(f"Recieved data: {data}")
-            logging.info(f"Recieved data from: {addr}")
+            logging.debug(f"Recieved data: {data}")
+            logging.debug(f"Recieved data from: {addr}")
             if (addr[0] == MY_IP):
                 for item in data:
                     id_, value = item.split('=')
@@ -104,7 +119,7 @@ def main(logging=logging):
                 logging.info(f"Data written to InfluxDB: {results}")
                 results.clear()
             else:
-                logging.info(f"Recieved data from unknown IP: {addr}")
+                logging.error(f"Recieved data from unknown IP: {addr}")
         except Exception as e:
             logging.error(f"Error data: {e}")
 
