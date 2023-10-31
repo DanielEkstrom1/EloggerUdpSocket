@@ -119,7 +119,8 @@ def main(logging=logging):
                 logging.info(f"Data written to InfluxDB: {results}")
                 results.clear()
             else:
-                logging.error(f"Recieved data from unknown IP: {addr}")
+                logging.error(
+                    f"Recieved data from unknown IP: {addr} Data: {data}")
         except Exception as e:
             logging.error(f"Error data: {e}")
 
